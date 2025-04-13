@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { PlusCircle, Share2, History, Trash2, Info, X, Copy } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa';
 import InputMask from 'react-input-mask';
@@ -94,8 +96,8 @@ function App() {
     setAssistanceText('');
     const validFriends = friends.filter(f => f.name && f.phone);
     if (validFriends.length < 2) {
-      alert('Please add at least 2 friends');
-      return;
+      toast.error('Please add at least 2 friends'); 
+       return;
     }
     
     const expense: Expense = {
@@ -144,22 +146,16 @@ function App() {
       <form onSubmit={handleNewExpense} className="space-y-6">
         <div className="flex gap-4">
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Trip/Event Name
-            </label>
             <input
               type="text"
               required
               value={tripName}
               onChange={(e) => setTripName(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Summer Vacation"
+              placeholder="Trip/Event name e.g. Dinner at Surya"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Currency
-            </label>
             <select
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
@@ -175,7 +171,7 @@ function App() {
         </div>
 
         <div className="space-y-4">
-          <label className="block text-sm font-medium text-gray-700">Friends</label>
+          <label className="block text-sm font-medium text-gray-700">Friends List</label>
           {friends.map((friend, index) => (
             <div key={friend.id} className="flex gap-2">
               <input
@@ -216,6 +212,13 @@ function App() {
             <PlusCircle size={20} /> Add Friend
           </button>
         </div>
+
+        <button
+          type="submit"
+          className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Continue
+        </button>
 
         {pastExpenses.length > 0 && (
           <div className="mt-8">
@@ -276,13 +279,6 @@ function App() {
             </div>
           </div>
         )}
-
-        <button
-          type="submit"
-          className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Continue
-        </button>
       </form>
     </div>
   );
@@ -577,7 +573,8 @@ function App() {
                       return `${from} owes ${to} ${formatCurrency(split.amount, currentExpense.currency)}`;
                     }).join('\n');
                     navigator.clipboard.writeText(explanationText);
-                    alert('Copied to clipboard!');
+                    toast.success('Explanation copied to clipboard!');
+                  
                   }}
                   className="flex items-center gap-2 text-blue-600 hover:text-blue-700"
                 >
@@ -596,6 +593,7 @@ function App() {
       {step === 'new' && renderNewExpenseForm()}
       {step === 'details' && renderExpenseDetails()}
       {step === 'summary' && renderSummary()}
+      <ToastContainer />
     </div>
   );
 }
