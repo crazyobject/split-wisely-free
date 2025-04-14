@@ -246,7 +246,7 @@ function App() {
                 >
                   <div className="flex justify-between items-start">
                     <div>
-                      <div className="font-medium">{expense.tripName}</div>
+                      <div className="font-medium capitalize">{expense.tripName}</div>
                       <div className="text-sm text-gray-600">
                         {formatDateTime(expense.date)} · {expense.friends.length} friends · {formatCurrency(expense.totalAmount, expense.currency)}
                       </div>
@@ -406,11 +406,11 @@ function App() {
             <div key={transaction.id} className="p-4 bg-gray-50 rounded-lg">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="font-medium">{transaction.description}</p>
+                  <p className="font-medium capitalize">{transaction.description}</p>
                   <p className="text-sm text-gray-600">
-                    Paid by {currentExpense.friends.find(f => f.id === transaction.paidBy)?.name}
+                    Paid by <span className="text-blue-600 font-medium">{currentExpense.friends.find(f => f.id === transaction.paidBy)?.name}</span>
                     {transaction.splitBetween.length > 0 && (
-                      <> · Split between {transaction.splitBetween.length} people</>
+                      <> · Split between <span className="text-green-600 font-medium">{transaction.splitBetween.length} people</span></>
                     )}
                   </p>
                 </div>
@@ -572,9 +572,26 @@ function App() {
                       const to = currentExpense.friends.find(f => f.id === split.to)?.name;
                       return `${from} owes ${to} ${formatCurrency(split.amount, currentExpense.currency)}`;
                     }).join('\n');
-                    navigator.clipboard.writeText(explanationText);
-                    toast.success('Explanation copied to clipboard!');
-                  
+
+                    const additionalDetails = `
+Trip Name: ${currentExpense.tripName}
+Total Amount: ${formatCurrency(currentExpense.totalAmount, currentExpense.currency)}
+Date: ${formatDateTime(currentExpense.date)}
+
+Transactions:
+${currentExpense.transactions.map((t, i) => {
+  const payer = currentExpense.friends.find(f => f.id === t.paidBy)?.name;
+  const splitCount = t.splitBetween.length || currentExpense.friends.length;
+  const perPerson = t.amount / splitCount;
+  return `• ${payer} paid ${formatCurrency(t.amount, currentExpense.currency)} for ${t.description} (Split between ${splitCount} people: ${formatCurrency(perPerson, currentExpense.currency)} each)`;
+}).join('\n')}
+
+Final Settlements:
+${explanationText}
+    `;
+
+                    navigator.clipboard.writeText(additionalDetails.trim());
+                    toast.success('All details copied to clipboard!');
                   }}
                   className="flex items-center gap-2 text-blue-600 hover:text-blue-700"
                 >
