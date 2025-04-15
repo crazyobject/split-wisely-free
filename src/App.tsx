@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { PlusCircle, Share2, History, Trash2, Info, X, Copy } from 'lucide-react';
+import { PlusCircle, Share2, History, Trash2, Info, X, Copy, Edit } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa';
 import InputMask from 'react-input-mask';
 import { Expense, Friend, Transaction, Currency } from './types';
@@ -101,16 +101,18 @@ function App() {
   };
 
   const copyGroupFromExpense = (expense: Expense) => {
+    //setTripName(expense.tripName); // Set the trip name from the copied expense
     setFriends(expense.friends.map(friend => ({
       ...friend,
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9)
     })));
+    toast.success('Group copied to the form!'); // Show a success message
   };
 
   const handleNewExpense = (e: React.FormEvent) => {
     e.preventDefault();
     setAssistanceText('');
-    const validFriends = friends.filter(f => f.name && f.phone);
+    const validFriends = friends.filter(f => f.name);
     if (validFriends.length < 2) {
       toast.error('Please add at least 2 friends'); 
        return;
@@ -134,25 +136,59 @@ function App() {
 
   const addTransaction = (transaction: Omit<Transaction, 'id' | 'date'>) => {
     if (!currentExpense) return;
-    
+  
     const newTransaction: Transaction = {
       ...transaction,
       id: Date.now().toString(),
-      date: new Date().toISOString()
+      date: new Date().toISOString(),
     };
-    
+  
     const updatedExpense: Expense = {
       ...currentExpense,
       transactions: [...currentExpense.transactions, newTransaction],
-      totalAmount: currentExpense.totalAmount + transaction.amount
+      totalAmount: currentExpense.totalAmount + transaction.amount,
     };
-    
+  
     setCurrentExpense(updatedExpense);
+  
+    // Update the pastExpenses list and save to localStorage
+    const existingExpenseIndex = pastExpenses.findIndex(e => e.id === updatedExpense.id);
+    if (existingExpenseIndex !== -1) {
+      // Update the existing expense
+      const updatedExpenses = [...pastExpenses];
+      updatedExpenses[existingExpenseIndex] = updatedExpense;
+      setPastExpenses(updatedExpenses);
+      localStorage.setItem('expenses', JSON.stringify(updatedExpenses));
+    } else {
+      // Add the new expense to the list
+      const newPastExpenses = [updatedExpense, ...pastExpenses];
+      setPastExpenses(newPastExpenses);
+      localStorage.setItem('expenses', JSON.stringify(newPastExpenses));
+    }
   };
+  
 
   const finalizeSplit = () => {
     if (!currentExpense) return;
-    saveExpense(currentExpense);
+
+    // Check if the expense already exists in the pastExpenses list
+    const existingExpenseIndex = pastExpenses.findIndex(e => e.id === currentExpense.id);
+
+    if (existingExpenseIndex !== -1) {
+      // Update the existing expense
+      const updatedExpenses = [...pastExpenses];
+      updatedExpenses[existingExpenseIndex] = currentExpense;
+      setPastExpenses(updatedExpenses);
+    } else {
+      // Add a new expense if it doesn't exist
+      const newPastExpenses = [currentExpense, ...pastExpenses].slice(0, 3);
+      setPastExpenses(newPastExpenses);
+    }
+
+    // Save to localStorage
+    localStorage.setItem('expenses', JSON.stringify(pastExpenses));
+
+    // Navigate to the summary page
     setStep('summary');
   };
 
@@ -213,7 +249,6 @@ function App() {
                 mask="+99 999 999 9999"
                 maskChar={null}
                 type="tel"
-                required
                 value={friend.phone}
                 onChange={(e) => {
                   const value = e.target.value.replace(/[^\d+]/g, '');
@@ -262,8 +297,9 @@ function App() {
                   key={expense.id}
                   className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-transform transform hover:scale-105"
                   onClick={() => {
+                    // Navigate to the Settlements page
                     setCurrentExpense(expense);
-                    setStep('details');
+                    setStep('summary');
                   }}
                 >
                   <div className="flex justify-between items-start">
@@ -274,19 +310,35 @@ function App() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      {/* Copy Icon */}
                       <button
                         onClick={(e) => {
-                          e.stopPropagation();
-                          copyGroupFromExpense(expense);
+                          e.stopPropagation(); // Prevent triggering the main div's click event
+                          copyGroupFromExpense(expense); // Copy group to the form
                         }}
                         className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
                         title="Copy group members"
                       >
                         <Copy size={16} />
                       </button>
+
+                      {/* Edit Icon */}
                       <button
                         onClick={(e) => {
-                          e.stopPropagation();
+                          e.stopPropagation(); // Prevent triggering the main div's click event
+                          setCurrentExpense(expense);
+                          setStep('details'); // Navigate to the details page for editing
+                        }}
+                        className="text-gray-600 hover:text-gray-700 flex items-center gap-1"
+                        title="Edit expense"
+                      >
+                        <Edit size={16} />
+                      </button>
+
+                      {/* Delete Icon */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent triggering the main div's click event
                           deleteExpense(expense.id);
                         }}
                         className="text-red-600 hover:text-red-700"
