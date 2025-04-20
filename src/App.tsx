@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { PlusCircle, Share2, History, Trash2, Info, X, Copy, Edit } from 'lucide-react';
+import { PlusCircle, Share2, History, Trash2, Info, X, Copy, Edit, Home } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa';
 import InputMask from 'react-input-mask';
 import { Expense, Friend, Transaction, Currency } from './types';
@@ -15,6 +15,7 @@ import {
   getInitials,
   CURRENCIES
 } from './utils';
+
 
 const Header = ({ setStep }: { setStep: React.Dispatch<React.SetStateAction<'new' | 'details' | 'summary'>> }) => (
   <header className="fixed top-0 left-0 w-full bg-white shadow-md z-50">
@@ -48,6 +49,7 @@ function App() {
   const [splitBetween, setSplitBetween] = useState<string[]>([]);
   const [showExplanation, setShowExplanation] = useState(false);
   const [assistanceText, setAssistanceText] = useState('');
+  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('expenses');
@@ -221,7 +223,7 @@ function App() {
             >
               {CURRENCIES.map(curr => (
                 <option key={curr.code} value={curr.code}>
-                  {curr.symbol} {curr.code}
+                  {curr.code} {curr.symbol}
                 </option>
               ))}
             </select>
@@ -233,6 +235,7 @@ function App() {
           {friends.map((friend, index) => (
             <div key={friend.id} className="flex flex-col sm:flex-row gap-2">
               <input
+                id={`friend-name-${friend.id}`} // Add unique ID
                 type="text"
                 required
                 value={friend.name}
@@ -263,7 +266,13 @@ function App() {
           ))}
           <button
             type="button"
-            onClick={() => setFriends([...friends, { id: Date.now().toString(), name: '', phone: '' }])}
+            onClick={() => {
+              const newFriend = { id: Date.now().toString(), name: '', phone: '' };
+              setFriends([...friends, newFriend]);
+              setTimeout(() => {
+                document.getElementById(`friend-name-${newFriend.id}`)?.focus();
+              }, 0); // Delay to ensure the DOM is updated before focusing
+            }}
             className="flex items-center gap-2 text-blue-600 hover:text-blue-700"
           >
             <PlusCircle size={20} /> Add Friend
@@ -359,32 +368,143 @@ function App() {
 
   const renderExpenseDetails = () => {
     if (!currentExpense) return null;
-
+  
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-      addTransaction({
-        paidBy,
-        amount: parseFloat(amount),
-        description,
-        splitBetween
-      });
+    
+      // If editing an existing transaction, update it
+      if (editingTransactionId) {
+        const updatedTransactions = currentExpense.transactions.map(transaction =>
+          transaction.id === editingTransactionId
+            ? {
+                ...transaction,
+                amount: parseFloat(amount),
+                description,
+                paidBy,
+              }
+            : transaction
+        );
+    
+        const updatedExpense = {
+          ...currentExpense,
+          transactions: updatedTransactions,
+          totalAmount: updatedTransactions.reduce((sum, t) => sum + t.amount, 0),
+        };
+    
+        setCurrentExpense(updatedExpense);
+        setEditingTransactionId(null);
+        setAmount('');
+        setDescription('');
+        setPaidBy(currentExpense.friends[0].id);
+    
+        // Update localStorage
+        const updatedExpenses = pastExpenses.map(expense =>
+          expense.id === updatedExpense.id ? updatedExpense : expense
+        );
+        setPastExpenses(updatedExpenses);
+        localStorage.setItem('expenses', JSON.stringify(updatedExpenses));
+    
+        // Show success toast
+        toast.success('Expense updated successfully!');
+    
+        // Scroll to and highlight the updated expense
+        setTimeout(() => {
+          const expenseDiv = document.getElementById(`transaction-${editingTransactionId}`);
+          if (expenseDiv) {
+            expenseDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            expenseDiv.classList.add('bg-yellow-100');
+            setTimeout(() => expenseDiv.classList.remove('bg-yellow-100'), 2000); // Remove highlight after 2 seconds
+          }
+        }, 300); // Delay to ensure the DOM is updated
+      } else {
+        // Add a new transaction
+        addTransaction({
+          paidBy,
+          amount: parseFloat(amount),
+          description,
+          splitBetween,
+        });
+      }
+    
       setAmount('');
       setDescription('');
       setSplitBetween([]);
     };
+  
+    const handleEditTransaction = (transaction: Transaction) => {
+      setEditingTransactionId(transaction.id);
+      setAmount(transaction.amount.toString());
+      setDescription(transaction.description);
+      setPaidBy(transaction.paidBy);
+    
+      const amountInput = document.getElementById('amount-input');
+      
+      if (amountInput) {
+        amountInput.focus();
+        const body = document.querySelector('body')
+        if(body){
+          body.scrollIntoView({ behavior: 'smooth' }); 
+          amountInput.classList.add('bg-yellow-100');
+          setTimeout(() => amountInput.classList.remove('bg-yellow-100'), 2000);
 
+        }
+        toast.success('Editing transaction. Make changes and click "Update Expense".');
+      }
+    };
+  
+    const handleDeleteTransaction = (transactionId: string) => {
+      const updatedTransactions = currentExpense.transactions.filter(t => t.id !== transactionId);
+    
+      const updatedExpense = {
+        ...currentExpense,
+        transactions: updatedTransactions,
+        totalAmount: updatedTransactions.reduce((sum, t) => sum + t.amount, 0),
+      };
+    
+      setCurrentExpense(updatedExpense);
+    
+      // Update localStorage
+      const updatedExpenses = pastExpenses.map(expense =>
+        expense.id === updatedExpense.id ? updatedExpense : expense
+      );
+      setPastExpenses(updatedExpenses);
+      localStorage.setItem('expenses', JSON.stringify(updatedExpenses));
+    
+      toast.success('Transaction deleted successfully.');
+    };
+  
     return (
       <div className="max-w-2xl mx-auto p-6 bg-white rounded-xl shadow-lg">
-        <h1 className="capitalize text-3xl font-bold text-gray-800 mb-2">{currentExpense.tripName}</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="capitalize text-3xl font-bold text-gray-800">{currentExpense.tripName}</h1>
+          <button
+            onClick={() => {
+              setStep('new');
+              setCurrentExpense(null);
+              setTripName('');
+              setFriends([{ id: '1', name: '', phone: '' }]);
+              setAmount('');
+              setDescription('');
+              setPaidBy('1');
+              setSplitBetween([]);
+            }}
+            className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+            title="Go to Home"
+          >
+            <Home size={20} /> Home
+          </button>
+        </div>
+  
         <p className="text-right text-orange-600 font-semibold">
           Total: {formatCurrency(currentExpense.totalAmount, currentExpense.currency)}
         </p>
-
+  
         <form onSubmit={handleSubmit} className="space-y-4 mb-8">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
               <input
+                id="amount-input"
                 type="number"
                 required
                 value={amount}
@@ -409,19 +529,9 @@ function App() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-            <input
-              type="text"
-              required
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-              placeholder="What was this for?"
-            />
-          </div>
-          <div>
             <label className="block text-sm font-medium text-gray-700 mb-4">Split Between</label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {/* Option to split between all participants */}
               <button
                 type="button"
                 onClick={() => setSplitBetween([])}
@@ -436,6 +546,8 @@ function App() {
                 </div>
                 <span className="font-medium">Everyone</span>
               </button>
+    
+              {/* Options to split between specific friends */}
               {currentExpense.friends.map(friend => (
                 <button
                   key={friend.id}
@@ -461,52 +573,76 @@ function App() {
               ))}
             </div>
           </div>
-          {assistanceText && (
-            <div className="p-4 bg-yellow-100 text-yellow-800 rounded-lg mb-4">
-              {assistanceText}
-            </div>
-          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+            <input
+              type="text"
+              required
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+              placeholder="What was this for?"
+            />
+          </div>
           <button
             type="submit"
             className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors"
           >
-            Add Expense
+            {editingTransactionId ? 'Update Expense' : 'Add Expense'}
           </button>
         </form>
-
+  
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Expenses</h2>
+          {currentExpense.transactions.length > 0 &&<h2 className="text-xl font-semibold">Expenses</h2>}
           {currentExpense.transactions.map(transaction => (
-            <div key={transaction.id} className="p-4 bg-gray-50 rounded-lg">
+            <div
+              key={transaction.id}
+              id={`transaction-${transaction.id}`} // Add unique ID
+              className="p-4 bg-gray-50 rounded-lg transition-all duration-300"
+            >
               <div className="flex justify-between items-start">
                 <div>
                   <p className="font-medium capitalize">{transaction.description}</p>
                   <p className="text-sm text-gray-600">
                     Paid by <span className="text-blue-600 font-medium">{currentExpense.friends.find(f => f.id === transaction.paidBy)?.name}</span>
-                    {transaction.splitBetween.length > 0 && (
-                      <> · Split between <span className="text-green-600 font-medium">{transaction.splitBetween.length} people</span></>
-                    )}
                   </p>
                 </div>
-                <p className="font-semibold">
-                  {formatCurrency(transaction.amount, currentExpense.currency)}
-                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleEditTransaction(transaction)}
+                    className="text-gray-600 hover:text-gray-700 flex items-center gap-1"
+                    title="Edit expense"
+                  >
+                    <Edit size={16} />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteTransaction(transaction.id)}
+                    className="text-red-600 hover:text-red-700 flex items-center gap-1"
+                    title="Delete expense"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
+              <p className="font-semibold">
+                {formatCurrency(transaction.amount, currentExpense.currency)}
+              </p>
             </div>
           ))}
         </div>
-
-        {currentExpense.transactions.length > 0 && (
+        
+        {
+          currentExpense.transactions.length > 0 && 
           <button
-            onClick={finalizeSplit}
-            className="mt-8 w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
-          >
-            <Share2 size={20} /> Calculate Split
-          </button>
-        )}
+          onClick={finalizeSplit}
+          className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-transform transform hover:scale-105 mt-6"
+        >
+          Calculate Split
+        </button>}
       </div>
     );
   };
+  
 
   const renderSummary = () => {
     if (!currentExpense) return null;
@@ -580,7 +716,7 @@ function App() {
 
         {showExplanation && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl max-w-lg w-full p-6 relative">
+            <div className="bg-white rounded-xl max-w-lg w-full p-6 relative max-h-[70vh] overflow-y-auto">
               <button
                 onClick={() => setShowExplanation(false)}
                 className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
