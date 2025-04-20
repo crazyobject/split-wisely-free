@@ -20,6 +20,85 @@ export const CURRENCIES: Currency[] = [
 
 export const calculateSplits = (expense: Expense): Split[] => {
   const splits: Split[] = [];
+
+  // Step 1: Calculate per-transaction splits
+  expense.transactions.forEach(transaction => {
+    const splitMembers = transaction.splitBetween.length > 0 
+      ? transaction.splitBetween 
+      : expense.friends.map(f => f.id);
+    
+    const perPersonShare = transaction.amount / splitMembers.length;
+
+    splitMembers.forEach(memberId => {
+      if (memberId !== transaction.paidBy) {
+        splits.push({
+          from: memberId,
+          to: transaction.paidBy,
+          amount: perPersonShare
+        });
+      }
+    });
+  });
+
+  // Step 2: Consolidate same-direction splits
+  const consolidatedMap: Record<string, Split> = {};
+  splits.forEach(split => {
+    const key = `${split.from}-${split.to}`;
+    if (consolidatedMap[key]) {
+      consolidatedMap[key].amount += split.amount;
+    } else {
+      consolidatedMap[key] = { ...split };
+    }
+  });
+
+  const consolidatedSplits = Object.values(consolidatedMap);
+
+  // Step 3: Net reverse-direction splits
+  const nettedMap: Record<string, Split> = {};
+  const visited = new Set<string>();
+
+  consolidatedSplits.forEach(split => {
+    const reverseKey = `${split.to}-${split.from}`;
+    const directKey = `${split.from}-${split.to}`;
+
+    if (visited.has(directKey) || visited.has(reverseKey)) return;
+
+    const reverseSplit = consolidatedMap[reverseKey];
+    if (reverseSplit) {
+      // Both directions exist, net them
+      if (split.amount > reverseSplit.amount) {
+        nettedMap[directKey] = {
+          from: split.from,
+          to: split.to,
+          amount: Number((split.amount - reverseSplit.amount).toFixed(2))
+        };
+      } else if (reverseSplit.amount > split.amount) {
+        nettedMap[reverseKey] = {
+          from: reverseSplit.from,
+          to: reverseSplit.to,
+          amount: Number((reverseSplit.amount - split.amount).toFixed(2))
+        };
+      }
+      // If equal, nothing is owed
+    } else {
+      // Only one direction exists, keep it as-is
+      nettedMap[directKey] = {
+        from: split.from,
+        to: split.to,
+        amount: Number(split.amount.toFixed(2))
+      };
+    }
+
+    visited.add(directKey);
+    visited.add(reverseKey);
+  });
+
+  return Object.values(nettedMap);
+};
+
+
+export const calculateSplitsOld = (expense: Expense): Split[] => {
+  const splits: Split[] = [];
   
   // Calculate per-transaction splits
   expense.transactions.forEach(transaction => {
