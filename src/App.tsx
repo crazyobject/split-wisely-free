@@ -15,7 +15,7 @@ import {
   getInitials,
   CURRENCIES
 } from './utils';
-
+import ExpenseTrendChart from './ExpenseTrendChart';
 
 const Header = ({ setStep }: { setStep: React.Dispatch<React.SetStateAction<'new' | 'details' | 'summary'>> }) => (
   <header className="fixed top-0 left-0 w-full bg-white shadow-md z-50">
@@ -50,6 +50,7 @@ function App() {
   const [showExplanation, setShowExplanation] = useState(false);
   const [assistanceText, setAssistanceText] = useState('');
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
+  const [showTrendModal, setShowTrendModal] = useState(false); // Moved here
 
   useEffect(() => {
     const saved = localStorage.getItem('expenses');
@@ -368,10 +369,10 @@ function App() {
 
   const renderExpenseDetails = () => {
     if (!currentExpense) return null;
-  
+
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-    
+
       // If editing an existing transaction, update it
       if (editingTransactionId) {
         const updatedTransactions = currentExpense.transactions.map(transaction =>
@@ -384,29 +385,29 @@ function App() {
               }
             : transaction
         );
-    
+
         const updatedExpense = {
           ...currentExpense,
           transactions: updatedTransactions,
           totalAmount: updatedTransactions.reduce((sum, t) => sum + t.amount, 0),
         };
-    
+
         setCurrentExpense(updatedExpense);
         setEditingTransactionId(null);
         setAmount('');
         setDescription('');
         setPaidBy(currentExpense.friends[0].id);
-    
+
         // Update localStorage
         const updatedExpenses = pastExpenses.map(expense =>
           expense.id === updatedExpense.id ? updatedExpense : expense
         );
         setPastExpenses(updatedExpenses);
         localStorage.setItem('expenses', JSON.stringify(updatedExpenses));
-    
+
         // Show success toast
         toast.success('Expense updated successfully!');
-    
+
         // Scroll to and highlight the updated expense
         setTimeout(() => {
           const expenseDiv = document.getElementById(`transaction-${editingTransactionId}`);
@@ -425,54 +426,12 @@ function App() {
           splitBetween,
         });
       }
-    
+
       setAmount('');
       setDescription('');
       setSplitBetween([]);
     };
-  
-    const handleEditTransaction = (transaction: Transaction) => {
-      setEditingTransactionId(transaction.id);
-      setAmount(transaction.amount.toString());
-      setDescription(transaction.description);
-      setPaidBy(transaction.paidBy);
-    
-      const amountInput = document.getElementById('amount-input');
-      
-      if (amountInput) {
-        amountInput.focus();
-        const body = document.querySelector('body')
-        if(body){
-          body.scrollIntoView({ behavior: 'smooth' }); 
-          amountInput.classList.add('bg-yellow-100');
-          setTimeout(() => amountInput.classList.remove('bg-yellow-100'), 2000);
 
-        }
-        toast.success('Editing transaction. Make changes and click "Update Expense".');
-      }
-    };
-  
-    const handleDeleteTransaction = (transactionId: string) => {
-      const updatedTransactions = currentExpense.transactions.filter(t => t.id !== transactionId);
-    
-      const updatedExpense = {
-        ...currentExpense,
-        transactions: updatedTransactions,
-        totalAmount: updatedTransactions.reduce((sum, t) => sum + t.amount, 0),
-      };
-    
-      setCurrentExpense(updatedExpense);
-    
-      // Update localStorage
-      const updatedExpenses = pastExpenses.map(expense =>
-        expense.id === updatedExpense.id ? updatedExpense : expense
-      );
-      setPastExpenses(updatedExpenses);
-      localStorage.setItem('expenses', JSON.stringify(updatedExpenses));
-    
-      toast.success('Transaction deleted successfully.');
-    };
-  
     return (
       <div className="max-w-2xl mx-auto p-6 bg-white rounded-xl shadow-lg">
         <div className="flex justify-between items-center mb-6">
@@ -494,11 +453,11 @@ function App() {
             <Home size={20} /> Home
           </button>
         </div>
-  
+
         <p className="text-right text-orange-600 font-semibold">
           Total: {formatCurrency(currentExpense.totalAmount, currentExpense.currency)}
         </p>
-  
+
         <form onSubmit={handleSubmit} className="space-y-4 mb-8">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -591,9 +550,17 @@ function App() {
             {editingTransactionId ? 'Update Expense' : 'Add Expense'}
           </button>
         </form>
-  
+
         <div className="space-y-4">
-          {currentExpense.transactions.length > 0 &&<h2 className="text-xl font-semibold">Expenses</h2>}
+          {currentExpense.transactions.length > 0 && <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-semibold">Expenses</h2>
+          <button
+            onClick={() => setShowTrendModal(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Expense Trend
+          </button>
+        </div>}
           {currentExpense.transactions.map(transaction => (
             <div
               key={transaction.id}
@@ -639,10 +606,25 @@ function App() {
         >
           Calculate Split
         </button>}
+
+        {/* Modal for Expense Trend */}
+        {showTrendModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl max-w-3xl w-full p-6 relative">
+              <button
+                onClick={() => setShowTrendModal(false)}
+                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+              >
+                <X size={20} />
+              </button>
+              <h3 className="text-xl font-semibold mb-4">Expense Trend by Payer</h3>
+              <ExpenseTrendChart expense={currentExpense} />
+            </div>
+          </div>
+        )}
       </div>
     );
   };
-  
 
   const renderSummary = () => {
     if (!currentExpense) return null;
