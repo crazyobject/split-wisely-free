@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { ToastContainer, toast } from "react-toastify";
+import Banners from "./Banners";
 import "react-toastify/dist/ReactToastify.css";
 import {
   PlusCircle,
   Share2,
   History,
   Trash2,
+  MapPin,
   Info,
   X,
   Copy,
   Edit,
   Home,
 } from "lucide-react";
+import "./App.css";
 import { FaWhatsapp } from "react-icons/fa";
 import InputMask from "react-input-mask";
 import { Expense, Friend, Transaction, Currency } from "./types";
@@ -220,187 +223,268 @@ function App() {
   };
 
   const renderNewExpenseForm = () => (
-    <div className="max-w-lg mx-auto p-6 bg-white rounded-xl shadow-lg">
-      <div className="flex items-center justify-center mb-6">
-        <div className="flex items-center gap-2">
-          <h4 className="text-3xl font-bold text-gray-800">
-            Enter your trip/event details.
-          </h4>
-        </div>
-      </div>
-      <form onSubmit={handleNewExpense} className="space-y-6">
-        <div className="flex gap-4">
-          <div className="flex-1">
-            <input
-              type="text"
-              required
-              value={tripName}
-              onChange={(e) => setTripName(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Trip/Event name e.g. Dinner at Surya"
-            />
-          </div>
-          <div>
-            <select
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-            >
-              {CURRENCIES.map((curr) => (
-                <option key={curr.code} value={curr.code}>
-                  {curr.code} {curr.symbol}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <label className="block text-sm font-medium text-gray-700">
-            Friends List
-          </label>
-          {friends.map((friend, index) => (
-            <div key={friend.id} className="flex flex-col sm:flex-row gap-2">
-              <input
-                id={`friend-name-${friend.id}`} // Add unique ID
-                type="text"
-                required
-                value={friend.name}
-                onChange={(e) => {
-                  if (!validateName(e.target.value) && e.target.value !== "")
-                    return;
-                  const newFriends = [...friends];
-                  newFriends[index].name = e.target.value;
-                  setFriends(newFriends);
-                }}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
-                placeholder="Name"
-              />
-              <InputMask
-                mask="+99 999 999 9999"
-                maskChar={null}
-                type="tel"
-                value={friend.phone}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/[^\d+]/g, "");
-                  const newFriends = [...friends];
-                  newFriends[index].phone = value;
-                  setFriends(newFriends);
-                }}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
-                placeholder="+1 234 567 8900"
-              />
+    <>
+      <div className="max-w-lg mx-auto p-6 bg-white rounded-xl shadow-lg">
+        <div className="border-b pb-6">
+          <div className="flex items-center justify-between mb-6 border-b pb-4">
+            <div className="flex items-center gap-3">
+              <span className="text-blue-500 bg-blue-100 p-2 rounded-full">
+                <MapPin size={24} />
+              </span>
+              <h4 className="text-3xl font-bold text-gray-800">
+                Enter trip/event details
+              </h4>
             </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => {
-              const newFriend = {
-                id: Date.now().toString(),
-                name: "",
-                phone: "",
-              };
-              setFriends([...friends, newFriend]);
-              setTimeout(() => {
-                document.getElementById(`friend-name-${newFriend.id}`)?.focus();
-              }, 0); // Delay to ensure the DOM is updated before focusing
-            }}
-            className="flex items-center gap-2 text-blue-600 hover:text-blue-700"
-          >
-            <PlusCircle size={20} /> Add Friend
-          </button>
-        </div>
-
-        <button
-          type="submit"
-          className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105"
-        >
-          Continue
-        </button>
-
-        {pastExpenses.length > 0 && (
-          <div className="mt-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
-                <History size={20} /> Recent Expenses
-              </h2>
-              <button
-                type="button"
-                onClick={deleteAllExpenses}
-                className="text-red-600 hover:text-red-700 flex items-center gap-1"
-              >
-                <Trash2 size={16} /> Delete All
-              </button>
-            </div>
-            <div className="space-y-2">
-              {pastExpenses.map((expense) => (
-                <div
-                  key={expense.id}
-                  className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-transform transform hover:scale-105"
-                  onClick={() => {
-                    // Navigate to the Settlements page
-                    setCurrentExpense(expense);
-                    setStep("summary");
-                  }}
+          </div>
+          <form onSubmit={handleNewExpense} className="space-y-6">
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  required
+                  value={tripName}
+                  onChange={(e) => setTripName(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g. Team lunch at poptates"
+                />
+              </div>
+              <div>
+                <select
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="font-medium capitalize text-blue-600">
-                        {expense.tripName}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {formatDateTime(expense.date)} ·{" "}
-                        {expense.friends.length} friends ·{" "}
-                        {formatCurrency(expense.totalAmount, expense.currency)}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {/* Copy Icon */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation(); // Prevent triggering the main div's click event
-                          copyGroupFromExpense(expense); // Copy group to the form
-                        }}
-                        className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                        title="Copy group members"
-                      >
-                        <Copy size={16} />
-                      </button>
+                  {CURRENCIES.map((curr) => (
+                    <option key={curr.code} value={curr.code}>
+                      {curr.code} {curr.symbol}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-                      {/* Edit Icon */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation(); // Prevent triggering the main div's click event
-                          setCurrentExpense(expense);
-                          setStep("details"); // Navigate to the details page for editing
-                        }}
-                        className="text-gray-600 hover:text-gray-700 flex items-center gap-1"
-                        title="Edit expense"
-                      >
-                        <Edit size={16} />
-                      </button>
-
-                      {/* Delete Icon */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation(); // Prevent triggering the main div's click event
-                          deleteExpense(expense.id);
-                        }}
-                        className="text-red-600 hover:text-red-700"
-                        title="Delete expense"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
+            <div className="space-y-4">
+              <label className="block text-sm font-medium text-gray-700">
+                Friends List
+              </label>
+              {friends.map((friend, index) => (
+                <div
+                  key={friend.id}
+                  className="flex flex-col sm:flex-row gap-2 items-center"
+                >
+                  <input
+                    id={`friend-name-${friend.id}`} // Add unique ID
+                    type="text"
+                    required
+                    value={friend.name}
+                    onChange={(e) => {
+                      if (
+                        !validateName(e.target.value) &&
+                        e.target.value !== ""
+                      )
+                        return;
+                      const newFriends = [...friends];
+                      newFriends[index].name = e.target.value;
+                      setFriends(newFriends);
+                    }}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
+                    placeholder="Name"
+                  />
+                  <InputMask
+                    mask="+99 999 999 9999"
+                    maskChar={null}
+                    type="tel"
+                    value={friend.phone}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^\d+]/g, "");
+                      const newFriends = [...friends];
+                      newFriends[index].phone = value;
+                      setFriends(newFriends);
+                    }}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
+                    placeholder="+1 234 567 8900"
+                  />
+                  {index > 0 && ( // Render delete button only for rows other than the first one
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newFriends = friends.filter(
+                          (_, i) => i !== index
+                        );
+                        setFriends(newFriends);
+                      }}
+                      className="text-red-600 hover:text-red-700"
+                      title="Remove Friend"
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  )}
                 </div>
               ))}
+              <button
+                type="button"
+                onClick={() => {
+                  const newFriend = {
+                    id: Date.now().toString(),
+                    name: "",
+                    phone: "",
+                  };
+                  setFriends([...friends, newFriend]);
+                  setTimeout(() => {
+                    document
+                      .getElementById(`friend-name-${newFriend.id}`)
+                      ?.focus();
+                  }, 0); // Delay to ensure the DOM is updated before focusing
+                }}
+                className="flex items-center gap-2 text-blue-600 hover:text-blue-700"
+              >
+                <PlusCircle size={20} /> Add Friend
+              </button>
             </div>
-          </div>
-        )}
-      </form>
-    </div>
+
+            <button
+              type="submit"
+              className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105"
+            >
+              Continue
+            </button>
+          </form>
+        </div>
+        <div className="BannerSection">
+          {pastExpenses.length > 0 && (
+            <div className="mt-8 border-b pb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
+                  <History size={20} /> Recent Expenses
+                </h2>
+                <button
+                  type="button"
+                  onClick={deleteAllExpenses}
+                  className="text-red-600 hover:text-red-700 flex items-center gap-1"
+                >
+                  <Trash2 size={16} /> Delete All
+                </button>
+              </div>
+              <div className="space-y-2">
+                {pastExpenses.map((expense) => (
+                  <div
+                    key={expense.id}
+                    className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-transform transform hover:scale-105"
+                    onClick={() => {
+                      // Navigate to the Settlements page
+                      setCurrentExpense(expense);
+                      setStep("summary");
+                    }}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-medium capitalize text-blue-600">
+                          {expense.tripName}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {formatDateTime(expense.date)} ·{" "}
+                          {expense.friends.length} friends ·{" "}
+                          {formatCurrency(
+                            expense.totalAmount,
+                            expense.currency
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {/* Copy Icon */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent triggering the main div's click event
+                            copyGroupFromExpense(expense); // Copy group to the form
+                          }}
+                          className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                          title="Copy group members"
+                        >
+                          <Copy size={16} />
+                        </button>
+
+                        {/* Edit Icon */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent triggering the main div's click event
+                            setCurrentExpense(expense);
+                            setStep("details"); // Navigate to the details page for editing
+                          }}
+                          className="text-gray-600 hover:text-gray-700 flex items-center gap-1"
+                          title="Edit expense"
+                        >
+                          <Edit size={16} />
+                        </button>
+
+                        {/* Delete Icon */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent triggering the main div's click event
+                            deleteExpense(expense.id);
+                          }}
+                          className="text-red-600 hover:text-red-700"
+                          title="Delete expense"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <Banners />
+        </div>
+      </div>
+    </>
   );
+
+  const handleDeleteTransaction = (transactionId: string) => {
+    const updatedTransactions = currentExpense.transactions.filter(
+      (t) => t.id !== transactionId
+    );
+
+    const updatedExpense = {
+      ...currentExpense,
+      transactions: updatedTransactions,
+      totalAmount: updatedTransactions.reduce((sum, t) => sum + t.amount, 0),
+    };
+
+    setCurrentExpense(updatedExpense);
+
+    // Update localStorage
+    const updatedExpenses = pastExpenses.map((expense) =>
+      expense.id === updatedExpense.id ? updatedExpense : expense
+    );
+    setPastExpenses(updatedExpenses);
+    localStorage.setItem("expenses", JSON.stringify(updatedExpenses));
+
+    toast.success("Transaction deleted successfully.");
+  };
+
+  const handleEditTransaction = (transaction: Transaction) => {
+    setEditingTransactionId(transaction.id);
+    setAmount(transaction.amount.toString());
+    setDescription(transaction.description);
+    setPaidBy(transaction.paidBy);
+    setSplitBetween(transaction.splitBetween); // Set the splitBetween state to the transaction's splitBetween array
+
+    const amountInput = document.getElementById("amount-input");
+
+    if (amountInput) {
+      amountInput.focus();
+      const body = document.querySelector("body");
+      if (body) {
+        body.scrollIntoView({ behavior: "smooth" });
+        amountInput.classList.add("bg-yellow-100");
+        setTimeout(() => amountInput.classList.remove("bg-yellow-100"), 2000);
+      }
+      toast.success(
+        'Editing transaction. Make changes and click "Update Expense".'
+      );
+    }
+  };
 
   const renderExpenseDetails = () => {
     if (!currentExpense) return null;
@@ -477,7 +561,7 @@ function App() {
     };
 
     return (
-      <div className="max-w-2xl mx-auto p-6 bg-white rounded-xl shadow-lg">
+      <div className="max-w-2xl mx-auto p-4 bg-white rounded-xl shadow-lg">
         <div className="flex justify-between items-center mb-6">
           <h1 className="capitalize text-3xl font-bold text-gray-800">
             {currentExpense.tripName}
@@ -641,7 +725,20 @@ function App() {
                           (f) => f.id === transaction.paidBy
                         )?.name
                       }
-                    </span>
+                    </span>{" "}
+                    {formatDateTime(transaction.date)}
+                  </p>
+                  <p className="text-sm text-gray-600 italic">
+                    {transaction.splitBetween.length === 0
+                      ? "Split with all"
+                      : `Split with ${transaction.splitBetween
+                          .map(
+                            (id) =>
+                              currentExpense.friends.find((f) => f.id === id)
+                                ?.name
+                          )
+                          .filter(Boolean)
+                          .join(" and ")}`}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -705,25 +802,42 @@ function App() {
 
     return (
       <div className="max-w-2xl mx-auto p-6 bg-white rounded-xl shadow-lg">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">
-          {currentExpense.tripName}
-        </h1>
-        <p className="text-gray-600 mb-6">
-          Total:{" "}
-          {formatCurrency(currentExpense.totalAmount, currentExpense.currency)}
-        </p>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="capitalize text-3xl font-bold text-gray-800">
+            {currentExpense.tripName}
+          </h1>
+          <button
+            onClick={() => {
+              setStep("new");
+              setCurrentExpense(null);
+              setTripName("");
+              setFriends([{ id: "1", name: "", phone: "" }]);
+              setAmount("");
+              setDescription("");
+              setPaidBy("1");
+              setSplitBetween([]);
+            }}
+            className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+            title="Go to Home"
+          >
+            <Home size={20} /> Home
+          </button>
+        </div>
 
         <div className="space-y-6">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">Settlements</h2>
+          <div className="p-2 bg-white rounded-2xl shadow-md border border-gray-200 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-800">
+                💰 Settlements
+              </h2>
               <button
                 onClick={() => setShowExplanation(true)}
-                className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                className="text-blue-600 hover:underline flex items-center gap-1"
               >
-                <Info size={16} /> Explanation
+                <Info size={18} /> Explanation
               </button>
             </div>
+
             {splits.map((split, index) => {
               const from = currentExpense.friends.find(
                 (f) => f.id === split.from
@@ -734,15 +848,19 @@ function App() {
               return (
                 <div
                   key={index}
-                  className="flex justify-between items-center p-4 bg-gray-50 rounded-lg mb-2"
+                  className="flex justify-between items-center bg-gray-50 p-4 rounded-lg shadow-sm hover:bg-gray-100 transition"
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{from.name}</span>
-                    <span>owes</span>
-                    <span className="font-medium">{to.name}</span>
+                  <div className="text-gray-700">
+                    <span className="font-semibold text-gray-900">
+                      {from.name}
+                    </span>{" "}
+                    owes{" "}
+                    <span className="font-semibold text-gray-900">
+                      {to.name}
+                    </span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="font-semibold">
+                    <span className="font-bold text-green-700">
                       {formatCurrency(split.amount, currentExpense.currency)}
                     </span>
                     <a
@@ -755,14 +873,24 @@ function App() {
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-green-600 hover:text-green-700"
+                      className="hover:scale-110 transition-transform"
+                      title={`Send reminder to ${from.name}`}
                     >
-                      <FaWhatsapp size={20} className="text-green-600" />
+                      <FaWhatsapp size={22} className="text-green-500" />
                     </a>
                   </div>
                 </div>
               );
             })}
+
+            <hr className="my-2" />
+            <div className="text-right text-lg text-orange-600 font-bold">
+              Total:{" "}
+              {formatCurrency(
+                currentExpense.totalAmount,
+                currentExpense.currency
+              )}
+            </div>
           </div>
 
           <button
@@ -781,6 +909,7 @@ function App() {
             New Split
           </button>
         </div>
+        <Banners />
 
         {showExplanation && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
@@ -940,7 +1069,7 @@ ${explanationText}
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100">
+    <div className="background min-h-screen">
       <Header setStep={setStep} />
       <div className="pt-20 max-w-4xl mx-auto  p-6">
         {step === "new" && renderNewExpenseForm()}
