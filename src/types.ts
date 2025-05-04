@@ -29,8 +29,8 @@ export interface Split {
   amount: number;
 }
 
-export type Currency = {
+/*export type Currency = {
   code: string;
   symbol: string;
   name: string;
-};
+};*/
