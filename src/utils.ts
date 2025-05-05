@@ -200,19 +200,20 @@ export const validateName = (name: string): boolean => {
 };*/
 
 export const isWebOrIPhone = () => {
-  const userAgent = navigator.userAgent.toLowerCase();
-  return (
-    userAgent.includes("iphone") || // Detect iPhone
-    userAgent.includes("ipad") || // Detect iPad
-    userAgent.includes("macintosh") || // Detect macOS Safari
-    userAgent.includes("windows") || // Detect Windows
-    userAgent.includes("linux") // Detect Linux
-  );
+  const ua = navigator.userAgent || navigator.vendor || window.opera;
+  const platform = navigator.platform.toLowerCase();
+
+  const isIOS =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (platform.includes("mac") && "ontouchend" in document);
+  const isLaptop = window.innerWidth > 1024 && !("ontouchstart" in window);
+
+  return isIOS || isLaptop;
 };
 
 export const highlightAndFocus = (element) => {
   // Scroll to and highlight the updated expense
-  debugger;
+
   setTimeout(() => {
     if (element) {
       element.scrollIntoView({ behavior: "smooth", block: "center" });
