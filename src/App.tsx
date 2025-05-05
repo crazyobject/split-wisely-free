@@ -2,49 +2,42 @@ import React, { useState, useEffect } from "react";
 import { ToastContainer, toast } from "react-toastify";
 import Banners from "./Banners";
 import "react-toastify/dist/ReactToastify.css";
+import SpeechToTextInput from "./SpeechToTextInput";
+import Summary from "./Summary";
+import TransactionList from "./TransactionList";
+import ExpenseChart from "./ExpenseChart";
+import ExpenseCard from "./ExpenseCard";
 import {
-  PlusCircle,
-  Share2,
   History,
   Trash2,
   MapPin,
-  Info,
   X,
+  Settings,
   Copy,
+  Calendar,
+  Users,
+  Wallet,
   Edit,
   Home,
 } from "lucide-react";
 import "./App.css";
-import { FaWhatsapp } from "react-icons/fa";
-import InputMask from "react-input-mask";
-import { Expense, Friend, Transaction, Currency } from "./types";
+import { Expense, Friend, Transaction } from "./types";
+import Header from "./Header";
 import {
   calculateSplits,
   formatCurrency,
-  generateWhatsAppMessage,
-  validateName,
-  validatePhone,
   formatDateTime,
   getInitials,
-  CURRENCIES,
+  highlightAndFocus,
 } from "./utils";
 import ExpenseTrendChart from "./ExpenseTrendChart";
-
-const Header = ({
-  setStep,
-}: {
-  setStep: React.Dispatch<React.SetStateAction<"new" | "details" | "summary">>;
-}) => (
-  <header className="fixed top-0 left-0 w-full bg-white shadow-md z-50">
-    <div className="max-w-4xl mx-auto flex items-center gap-3 p-2">
-      <button onClick={() => setStep("new")}>
-        <img src="/icons/mainLogo.png" height="150" width="150"></img>
-      </button>
-    </div>
-  </header>
-);
+import NewExpenseForm from "./NewExpenseForm";
 
 function App() {
+  const [filteredTransactions, setFilteredTransactions] = useState<
+    Transaction[] | null
+  >(null); // Add this state to store filtered transactions
+
   const [step, setStep] = useState<"new" | "details" | "summary">("new");
   const [currentExpense, setCurrentExpense] = useState<Expense | null>(null);
   const [pastExpenses, setPastExpenses] = useState<Expense[]>([]);
@@ -57,11 +50,16 @@ function App() {
   const [paidBy, setPaidBy] = useState("1");
   const [currency, setCurrency] = useState(() => {
     const saved = localStorage.getItem("preferredCurrency");
-    return saved || "USD";
+    return saved || "USD"; // default currency
   });
+  const [currencySymbol, setCurrencySymbol] = useState("$"); // default symbol
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const [showSearchBar, setShowSearchBar] = useState(false); // Add this state
+  const [searchQuery, setSearchQuery] = useState(""); // Add this state for search input
+
   const [splitBetween, setSplitBetween] = useState<string[]>([]);
   const [showExplanation, setShowExplanation] = useState(false);
-  const [assistanceText, setAssistanceText] = useState("");
   const [editingTransactionId, setEditingTransactionId] = useState<
     string | null
   >(null);
@@ -78,40 +76,41 @@ function App() {
     localStorage.setItem("preferredCurrency", currency);
   }, [currency]);
 
-  useEffect(() => {
-    if (splitBetween.length === 0) {
-      setAssistanceText("This expense will be split between all participants.");
-    } else {
-      const selectedFriends = currentExpense?.friends
-        .filter((f) => splitBetween.includes(f.id))
-        .map((f) => f.name)
-        .join(" and ");
-      setAssistanceText(
-        `This expense will be split between ${selectedFriends}.`
-      );
+  const scrollToAmountInput = () => {
+    const amountInput = document.getElementById("amount-input");
+    if (amountInput) {
+      amountInput.scrollIntoView({ behavior: "smooth", block: "center" });
+      setTimeout(() => {
+        amountInput.focus();
+      }, 500);
     }
-  }, [splitBetween, currentExpense]);
+  };
 
-  useEffect(() => {
-    if (amount && paidBy && splitBetween.length === 0) {
-      setAssistanceText("This expense will be split between all participants.");
-    } else if (amount && paidBy && splitBetween.length > 0) {
-      const selectedFriends = currentExpense?.friends
-        .filter((f) => splitBetween.includes(f.id))
-        .map((f) => f.name)
-        .join(" and ");
-      setAssistanceText(
-        `This expense will be split between ${selectedFriends}.`
-      );
-    } else {
-      setAssistanceText(""); // Clear assistance text if conditions are not met
+  const handleSearchSubmit = () => {
+    if (searchQuery.length < 1) {
+      toast.error("Please enter a search term");
+      return;
     }
-  }, [amount, paidBy, splitBetween, currentExpense]);
+    if (!currentExpense) return;
 
-  const saveExpense = (expense: Expense) => {
-    const newPastExpenses = [expense, ...pastExpenses].slice(0, 3);
-    setPastExpenses(newPastExpenses);
-    localStorage.setItem("expenses", JSON.stringify(newPastExpenses));
+    const filtered = currentExpense.transactions.filter((transaction) =>
+      transaction.description.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    if (filtered.length === 0) {
+      toast.error("No transactions found");
+      return;
+    } else {
+      setFilteredTransactions(filtered); // Update the filtered transactions state
+      toast.success(`${filtered.length} transaction(s) found!`);
+      gotoTrendButton();
+    }
+  };
+
+  const gotoTrendButton = () => {
+    const trendButton = document.getElementById("expenseTrend");
+    if (trendButton) {
+      trendButton.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
   };
 
   const deleteExpense = (id: string) => {
@@ -133,12 +132,22 @@ function App() {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       }))
     );
-    toast.success("Group copied to the form!"); // Show a success message
+    toast.success("Group copied to the form!");
+
+    setTimeout(() => {
+      const firstFriendInput = document.getElementsByClassName("friendName")[0];
+      if (firstFriendInput) {
+        firstFriendInput.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+        firstFriendInput.focus();
+      }
+    }, 100);
   };
 
   const handleNewExpense = (e: React.FormEvent) => {
     e.preventDefault();
-    setAssistanceText("");
     const validFriends = friends.filter((f) => f.name);
     if (validFriends.length < 2) {
       toast.error("Please add at least 2 friends");
@@ -222,6 +231,33 @@ function App() {
     setStep("summary");
   };
 
+  const openContactPicker = async (index: number) => {
+    if ("contacts" in navigator && "select" in navigator.contacts) {
+      try {
+        const contacts = await navigator.contacts.select(["name", "tel"], {
+          multiple: false,
+        });
+        if (contacts.length > 0) {
+          const selectedContact = contacts[0];
+          const phoneNumber = selectedContact.tel[0]; // Get the first phone number
+          const contactName = selectedContact.name[0]; // Get the first name
+
+          const newFriends = [...friends];
+          newFriends[index].phone = phoneNumber;
+          newFriends[index].name = contactName; // Populate the name field
+          setFriends(newFriends);
+
+          toast.success(`Selected contact: ${contactName} successfully!`);
+        }
+      } catch (error) {
+        console.error("Error selecting contact:", error);
+        toast.error("Failed to open contacts.");
+      }
+    } else {
+      toast.error("Not supported on this device.");
+    }
+  };
+
   const renderNewExpenseForm = () => (
     <>
       <div className="max-w-lg mx-auto p-6 bg-white rounded-xl shadow-lg">
@@ -236,204 +272,58 @@ function App() {
               </h4>
             </div>
           </div>
-          <form onSubmit={handleNewExpense} className="space-y-6">
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <input
-                  type="text"
-                  required
-                  value={tripName}
-                  onChange={(e) => setTripName(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="e.g. Team lunch at poptates"
-                />
-              </div>
-              <div>
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                >
-                  {CURRENCIES.map((curr) => (
-                    <option key={curr.code} value={curr.code}>
-                      {curr.code} {curr.symbol}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <label className="block text-sm font-medium text-gray-700">
-                Friends List
-              </label>
-              {friends.map((friend, index) => (
-                <div
-                  key={friend.id}
-                  className="flex flex-col sm:flex-row gap-2 items-center"
-                >
-                  <input
-                    id={`friend-name-${friend.id}`} // Add unique ID
-                    type="text"
-                    required
-                    value={friend.name}
-                    onChange={(e) => {
-                      if (
-                        !validateName(e.target.value) &&
-                        e.target.value !== ""
-                      )
-                        return;
-                      const newFriends = [...friends];
-                      newFriends[index].name = e.target.value;
-                      setFriends(newFriends);
-                    }}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
-                    placeholder="Name"
-                  />
-                  <InputMask
-                    mask="+99 999 999 9999"
-                    maskChar={null}
-                    type="tel"
-                    value={friend.phone}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^\d+]/g, "");
-                      const newFriends = [...friends];
-                      newFriends[index].phone = value;
-                      setFriends(newFriends);
-                    }}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
-                    placeholder="+1 234 567 8900"
-                  />
-                  {index > 0 && ( // Render delete button only for rows other than the first one
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newFriends = friends.filter(
-                          (_, i) => i !== index
-                        );
-                        setFriends(newFriends);
-                      }}
-                      className="text-red-600 hover:text-red-700"
-                      title="Remove Friend"
-                    >
-                      <Trash2 size={20} />
-                    </button>
-                  )}
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => {
-                  const newFriend = {
-                    id: Date.now().toString(),
-                    name: "",
-                    phone: "",
-                  };
-                  setFriends([...friends, newFriend]);
-                  setTimeout(() => {
-                    document
-                      .getElementById(`friend-name-${newFriend.id}`)
-                      ?.focus();
-                  }, 0); // Delay to ensure the DOM is updated before focusing
-                }}
-                className="flex items-center gap-2 text-blue-600 hover:text-blue-700"
-              >
-                <PlusCircle size={20} /> Add Friend
-              </button>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105"
-            >
-              Continue
-            </button>
-          </form>
+          <NewExpenseForm
+            tripName={tripName}
+            setTripName={setTripName}
+            friends={friends}
+            setFriends={setFriends}
+            setCurrency={setCurrency}
+            currencySymbol={currencySymbol}
+            setCurrencySymbol={setCurrencySymbol}
+            dropdownOpen={dropdownOpen}
+            setDropdownOpen={setDropdownOpen}
+            handleNewExpense={handleNewExpense}
+            openContactPicker={openContactPicker}
+          />
         </div>
         <div className="BannerSection">
           {pastExpenses.length > 0 && (
             <div className="mt-8 border-b pb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
                   <History size={20} /> Recent Expenses
                 </h2>
                 <button
                   type="button"
                   onClick={deleteAllExpenses}
-                  className="text-red-600 hover:text-red-700 flex items-center gap-1"
+                  className="text-red-600 hover:text-red-700 flex items-center gap-1 text-sm font-medium"
                 >
                   <Trash2 size={16} /> Delete All
                 </button>
               </div>
-              <div className="space-y-2">
+
+              <div className="space-y-3">
                 {pastExpenses.map((expense) => (
-                  <div
+                  <ExpenseCard
                     key={expense.id}
-                    className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-transform transform hover:scale-105"
-                    onClick={() => {
-                      // Navigate to the Settlements page
-                      setCurrentExpense(expense);
-                      setStep("summary");
-                    }}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="font-medium capitalize text-blue-600">
-                          {expense.tripName}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          {formatDateTime(expense.date)} ·{" "}
-                          {expense.friends.length} friends ·{" "}
-                          {formatCurrency(
-                            expense.totalAmount,
-                            expense.currency
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {/* Copy Icon */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation(); // Prevent triggering the main div's click event
-                            copyGroupFromExpense(expense); // Copy group to the form
-                          }}
-                          className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                          title="Copy group members"
-                        >
-                          <Copy size={16} />
-                        </button>
-
-                        {/* Edit Icon */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation(); // Prevent triggering the main div's click event
-                            setCurrentExpense(expense);
-                            setStep("details"); // Navigate to the details page for editing
-                          }}
-                          className="text-gray-600 hover:text-gray-700 flex items-center gap-1"
-                          title="Edit expense"
-                        >
-                          <Edit size={16} />
-                        </button>
-
-                        {/* Delete Icon */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation(); // Prevent triggering the main div's click event
-                            deleteExpense(expense.id);
-                          }}
-                          className="text-red-600 hover:text-red-700"
-                          title="Delete expense"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                    expense={expense}
+                    setCurrentExpense={setCurrentExpense}
+                    setStep={setStep}
+                    copyGroupFromExpense={copyGroupFromExpense}
+                    deleteExpense={deleteExpense}
+                  />
                 ))}
               </div>
             </div>
           )}
+
+          {/* Add the ExpenseChart component here */}
+          {pastExpenses.length > 1 && (
+            <div className="border-b pt-6">
+              <ExpenseChart pastExpenses={pastExpenses} />
+            </div>
+          )}
+
           <Banners />
         </div>
       </div>
@@ -468,7 +358,7 @@ function App() {
     setAmount(transaction.amount.toString());
     setDescription(transaction.description);
     setPaidBy(transaction.paidBy);
-    setSplitBetween(transaction.splitBetween); // Set the splitBetween state to the transaction's splitBetween array
+    setSplitBetween(transaction.splitBetween);
 
     const amountInput = document.getElementById("amount-input");
 
@@ -486,79 +376,90 @@ function App() {
     }
   };
 
-  const renderExpenseDetails = () => {
-    if (!currentExpense) return null;
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
 
-    const handleSubmit = (e: React.FormEvent) => {
-      e.preventDefault();
+    // Validation: Ensure amount and description are provided
+    if (!amount || !description.trim()) {
+      toast.error("Please fill in all required fields.");
+      return;
+    }
 
-      // If editing an existing transaction, update it
-      if (editingTransactionId) {
-        const updatedTransactions = currentExpense.transactions.map(
-          (transaction) =>
-            transaction.id === editingTransactionId
-              ? {
-                  ...transaction,
-                  amount: parseFloat(amount),
-                  description,
-                  paidBy,
-                }
-              : transaction
-        );
+    // Validation: Ensure at least two participants are selected if not splitting with all
+    if (splitBetween.length > 0 && splitBetween.length < 2) {
+      toast.error("Please select at least 2 participants for the split.");
+      return;
+    }
 
-        const updatedExpense = {
-          ...currentExpense,
-          transactions: updatedTransactions,
-          totalAmount: updatedTransactions.reduce(
-            (sum, t) => sum + t.amount,
-            0
-          ),
-        };
+    // If editing an existing transaction, update it
+    if (editingTransactionId) {
+      const updatedTransactions = currentExpense.transactions.map(
+        (transaction) =>
+          transaction.id === editingTransactionId
+            ? {
+                ...transaction,
+                amount: parseFloat(amount),
+                description,
+                paidBy,
+              }
+            : transaction
+      );
 
-        setCurrentExpense(updatedExpense);
-        setEditingTransactionId(null);
-        setAmount("");
-        setDescription("");
-        setPaidBy(currentExpense.friends[0].id);
+      const updatedExpense = {
+        ...currentExpense,
+        transactions: updatedTransactions,
+        totalAmount: updatedTransactions.reduce((sum, t) => sum + t.amount, 0),
+      };
 
-        // Update localStorage
-        const updatedExpenses = pastExpenses.map((expense) =>
-          expense.id === updatedExpense.id ? updatedExpense : expense
-        );
-        setPastExpenses(updatedExpenses);
-        localStorage.setItem("expenses", JSON.stringify(updatedExpenses));
+      setCurrentExpense(updatedExpense);
+      setEditingTransactionId(null);
+      setAmount("");
+      setDescription("");
+      setPaidBy(currentExpense.friends[0].id);
 
-        // Show success toast
-        toast.success("Expense updated successfully!");
+      // Update localStorage
+      const updatedExpenses = pastExpenses.map((expense) =>
+        expense.id === updatedExpense.id ? updatedExpense : expense
+      );
+      setPastExpenses(updatedExpenses);
+      localStorage.setItem("expenses", JSON.stringify(updatedExpenses));
 
-        // Scroll to and highlight the updated expense
-        setTimeout(() => {
-          const expenseDiv = document.getElementById(
-            `transaction-${editingTransactionId}`
-          );
-          if (expenseDiv) {
-            expenseDiv.scrollIntoView({ behavior: "smooth", block: "center" });
-            expenseDiv.classList.add("bg-yellow-100");
-            setTimeout(
-              () => expenseDiv.classList.remove("bg-yellow-100"),
-              2000
-            ); // Remove highlight after 2 seconds
-          }
-        }, 300); // Delay to ensure the DOM is updated
-      } else {
-        // Add a new transaction
+      // Show success toast
+      toast.success("Expense updated successfully!");
+
+      highlightAndFocus(
+        document.getElementById(`transaction-${editingTransactionId}`)
+      );
+    } else {
+      // Add a new transaction
+      try {
         addTransaction({
           paidBy,
           amount: parseFloat(amount),
           description,
           splitBetween,
         });
-      }
 
-      setAmount("");
-      setDescription("");
-      setSplitBetween([]);
-    };
+        // Show success toast
+        toast.success("Expense added successfully!");
+        setTimeout(() => {
+          highlightAndFocus(
+            document.getElementsByClassName("space-y-4")[1]?.lastElementChild
+          );
+        }, 500);
+      } catch (error) {
+        console.error("Error adding expense:", error);
+        toast.error("Failed to add expense. Please try again.");
+      }
+    }
+
+    setAmount("");
+    setDescription("");
+    setSplitBetween([]);
+  };
+
+  const renderExpenseDetails = () => {
+    if (!currentExpense) return null;
 
     return (
       <div className="max-w-2xl mx-auto p-4 bg-white rounded-xl shadow-lg">
@@ -589,10 +490,17 @@ function App() {
           {formatCurrency(currentExpense.totalAmount, currentExpense.currency)}
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4 mb-8">
-          <div className="grid grid-cols-2 gap-4">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-6 mb-10 bg-white p-6 rounded-xl shadow-md"
+        >
+          {/* Amount and Paid By */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="amount-input"
+                className="block text-sm font-semibold text-gray-700 mb-2"
+              >
                 Amount
               </label>
               <input
@@ -601,20 +509,20 @@ function App() {
                 required
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 placeholder="0.00"
                 step="0.01"
                 min="0"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Paid By
               </label>
               <select
                 value={paidBy}
                 onChange={(e) => setPaidBy(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
               >
                 {currentExpense.friends.map((friend) => (
                   <option key={friend.id} value={friend.id}>
@@ -624,71 +532,88 @@ function App() {
               </select>
             </div>
           </div>
+
+          {/* Split Between */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-3">
               Split Between
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {/* Option to split between all participants */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {/* All Option */}
               <button
                 type="button"
                 onClick={() => setSplitBetween([])}
-                className={`p-3 rounded-lg border-2 flex items-center gap-2 transition-colors ${
+                className={`flex items-center gap-3 px-4 py-3 border-2 rounded-lg transition ${
                   splitBetween.length === 0
-                    ? "border-blue-500 bg-blue-50 text-blue-700"
-                    : "border-gray-200 hover:border-gray-300"
+                    ? "border-blue-600 bg-blue-50 text-blue-700 font-semibold"
+                    : "border-gray-200 hover:border-blue-300"
                 }`}
               >
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-medium">
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold">
                   ALL
                 </div>
-                <span className="font-medium">Everyone</span>
+                Everyone
               </button>
 
-              {/* Options to split between specific friends */}
-              {currentExpense.friends.map((friend) => (
-                <button
-                  key={friend.id}
-                  type="button"
-                  onClick={() => {
-                    if (splitBetween.includes(friend.id)) {
-                      setSplitBetween(
-                        splitBetween.filter((id) => id !== friend.id)
-                      );
-                    } else {
-                      setSplitBetween([...splitBetween, friend.id]);
+              {/* Individual Friends */}
+              {currentExpense.friends.map((friend) => {
+                const isSelected = splitBetween.includes(friend.id);
+                return (
+                  <button
+                    key={friend.id}
+                    type="button"
+                    onClick={() =>
+                      isSelected
+                        ? setSplitBetween(
+                            splitBetween.filter((id) => id !== friend.id)
+                          )
+                        : setSplitBetween([...splitBetween, friend.id])
                     }
-                  }}
-                  className={`p-2 rounded-md border flex items-center gap-1 text-sm transition-colors ${
-                    splitBetween.includes(friend.id)
-                      ? "border-blue-500 bg-blue-50 text-blue-700"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-medium">
-                    {getInitials(friend.name)}
-                  </div>
-                  <span>{friend.name}</span>
-                </button>
-              ))}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition text-sm ${
+                      isSelected
+                        ? "border-blue-600 bg-blue-50 text-blue-700 font-semibold"
+                        : "border-gray-200 hover:border-blue-300"
+                    }`}
+                  >
+                    <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs">
+                      {getInitials(friend.name)}
+                    </div>
+                    {friend.name}
+                  </button>
+                );
+              })}
             </div>
           </div>
+
+          {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
               Description
             </label>
-            <input
-              type="text"
-              required
+            <SpeechToTextInput
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+              onChange={setDescription}
               placeholder="What was this for?"
+              required={true}
+              micPosition="right"
+              micColor="text-red-600 hover:text-red-700"
             />
+            {/* Assistance Text */}
+            <div className="mt-2 text-sm text-gray-600 italic">
+              Splitting between{" "}
+              <span className="font-medium text-gray-800">
+                {splitBetween.length === 0
+                  ? currentExpense.friends.length
+                  : splitBetween.length}
+              </span>{" "}
+              {splitBetween.length === 1 ? "person" : "people"}.
+            </div>
           </div>
+
+          {/* Submit Button */}
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors"
+            className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold transform hover:scale-105"
           >
             {editingTransactionId ? "Update Expense" : "Add Expense"}
           </button>
@@ -696,82 +621,90 @@ function App() {
 
         <div className="space-y-4">
           {currentExpense.transactions.length > 0 && (
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold">Expenses</h2>
-              <button
-                onClick={() => setShowTrendModal(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Expense Trend
-              </button>
-            </div>
-          )}
-          {currentExpense.transactions.map((transaction) => (
-            <div
-              key={transaction.id}
-              id={`transaction-${transaction.id}`} // Add unique ID
-              className="p-4 bg-gray-50 rounded-lg transition-all duration-300"
-            >
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="font-medium capitalize">
-                    {transaction.description}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Paid by{" "}
-                    <span className="text-blue-600 font-medium">
-                      {
-                        currentExpense.friends.find(
-                          (f) => f.id === transaction.paidBy
-                        )?.name
-                      }
-                    </span>{" "}
-                    {formatDateTime(transaction.date)}
-                  </p>
-                  <p className="text-sm text-gray-600 italic">
-                    {transaction.splitBetween.length === 0
-                      ? "Split with all"
-                      : `Split with ${transaction.splitBetween
-                          .map(
-                            (id) =>
-                              currentExpense.friends.find((f) => f.id === id)
-                                ?.name
-                          )
-                          .filter(Boolean)
-                          .join(" and ")}`}
-                  </p>
-                </div>
+            <>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold">
+                  Expenses{" "}
+                  <button
+                    onClick={() => setShowSearchBar(!showSearchBar)} // Toggle search bar visibility
+                    className="text-gray-600 hover:text-gray-700"
+                    title="Search & filter expenses"
+                  >
+                    <Settings size={20} />
+                  </button>
+                </h2>
+                <button
+                  id="expenseTrend"
+                  onClick={() => setShowTrendModal(true)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Expense Trend
+                </button>
+              </div>
+              {/* Search Bar with Visibility Toggle */}
+              <div className={`${showSearchBar ? "block" : "hidden"} mb-4`}>
                 <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && searchQuery.trim() !== "") {
+                        handleSearchSubmit();
+                      }
+                    }}
+                    placeholder="Search expenses..."
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
                   <button
-                    onClick={() => handleEditTransaction(transaction)}
-                    className="text-gray-600 hover:text-gray-700 flex items-center gap-1"
-                    title="Edit expense"
+                    onClick={handleSearchSubmit} // Call the search function
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
                   >
-                    <Edit size={16} />
+                    Submit
                   </button>
-                  <button
-                    onClick={() => handleDeleteTransaction(transaction.id)}
-                    className="text-red-600 hover:text-red-700 flex items-center gap-1"
-                    title="Delete expense"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  {filteredTransactions && (
+                    <button
+                      onClick={() => {
+                        setFilteredTransactions(null); // Clear the filtered transactions
+                        setSearchQuery(""); // Clear the search query
+                        gotoTrendButton();
+                      }}
+                      className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition"
+                    >
+                      Clear
+                    </button>
+                  )}
                 </div>
               </div>
-              <p className="font-semibold">
-                {formatCurrency(transaction.amount, currentExpense.currency)}
-              </p>
-            </div>
-          ))}
+            </>
+          )}
+          {(filteredTransactions || currentExpense.transactions) && (
+            <TransactionList
+              transactions={filteredTransactions || currentExpense.transactions}
+              friends={currentExpense.friends}
+              handleEditTransaction={handleEditTransaction}
+              handleDeleteTransaction={handleDeleteTransaction}
+              currency={currentExpense.currency}
+            />
+          )}
         </div>
 
         {currentExpense.transactions.length > 0 && (
-          <button
-            onClick={finalizeSplit}
-            className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-transform transform hover:scale-105 mt-6"
-          >
-            Calculate Split
-          </button>
+          <>
+            <button
+              id="calculateSplitButton"
+              onClick={finalizeSplit}
+              className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-transform transform hover:scale-105 mt-6"
+            >
+              Calculate Split
+            </button>
+            <button
+              onClick={scrollToAmountInput}
+              className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105 mt-4"
+            >
+              Enter next expense
+            </button>
+          </>
         )}
 
         {/* Modal for Expense Trend */}
@@ -795,288 +728,30 @@ function App() {
     );
   };
 
-  const renderSummary = () => {
-    if (!currentExpense) return null;
-
-    const splits = calculateSplits(currentExpense);
-
-    return (
-      <div className="max-w-2xl mx-auto p-6 bg-white rounded-xl shadow-lg">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="capitalize text-3xl font-bold text-gray-800">
-            {currentExpense.tripName}
-          </h1>
-          <button
-            onClick={() => {
-              setStep("new");
-              setCurrentExpense(null);
-              setTripName("");
-              setFriends([{ id: "1", name: "", phone: "" }]);
-              setAmount("");
-              setDescription("");
-              setPaidBy("1");
-              setSplitBetween([]);
-            }}
-            className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
-            title="Go to Home"
-          >
-            <Home size={20} /> Home
-          </button>
-        </div>
-
-        <div className="space-y-6">
-          <div className="p-2 bg-white rounded-2xl shadow-md border border-gray-200 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-800">
-                💰 Settlements
-              </h2>
-              <button
-                onClick={() => setShowExplanation(true)}
-                className="text-blue-600 hover:underline flex items-center gap-1"
-              >
-                <Info size={18} /> Explanation
-              </button>
-            </div>
-
-            {splits.map((split, index) => {
-              const from = currentExpense.friends.find(
-                (f) => f.id === split.from
-              );
-              const to = currentExpense.friends.find((f) => f.id === split.to);
-              if (!from || !to) return null;
-
-              return (
-                <div
-                  key={index}
-                  className="flex justify-between items-center bg-gray-50 p-4 rounded-lg shadow-sm hover:bg-gray-100 transition"
-                >
-                  <div className="text-gray-700">
-                    <span className="font-semibold text-gray-900">
-                      {from.name}
-                    </span>{" "}
-                    owes{" "}
-                    <span className="font-semibold text-gray-900">
-                      {to.name}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-bold text-green-700">
-                      {formatCurrency(split.amount, currentExpense.currency)}
-                    </span>
-                    <a
-                      href={`https://wa.me/${
-                        from.phone
-                      }?text=${generateWhatsAppMessage(
-                        currentExpense,
-                        splits,
-                        from.id
-                      )}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:scale-110 transition-transform"
-                      title={`Send reminder to ${from.name}`}
-                    >
-                      <FaWhatsapp size={22} className="text-green-500" />
-                    </a>
-                  </div>
-                </div>
-              );
-            })}
-
-            <hr className="my-2" />
-            <div className="text-right text-lg text-orange-600 font-bold">
-              Total:{" "}
-              {formatCurrency(
-                currentExpense.totalAmount,
-                currentExpense.currency
-              )}
-            </div>
-          </div>
-
-          <button
-            onClick={() => {
-              setStep("new");
-              setCurrentExpense(null);
-              setTripName("");
-              setFriends([{ id: "1", name: "", phone: "" }]);
-              setAmount("");
-              setDescription("");
-              setPaidBy("1");
-              setSplitBetween([]);
-            }}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            New Split
-          </button>
-        </div>
-        <Banners />
-
-        {showExplanation && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl max-w-lg w-full p-6 relative max-h-[70vh] overflow-y-auto">
-              <button
-                onClick={() => setShowExplanation(false)}
-                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
-              >
-                <X size={20} />
-              </button>
-              <h3 className="text-xl font-semibold mb-4">
-                How the Split was Calculated
-              </h3>
-              <div className="space-y-4 text-gray-600">
-                <p>
-                  Here's how we calculated the splits for{" "}
-                  {currentExpense.tripName}:
-                </p>
-
-                <div className="space-y-2">
-                  <p className="font-medium text-gray-700">1. Total Amount</p>
-                  <p>
-                    The total expense is{" "}
-                    {formatCurrency(
-                      currentExpense.totalAmount,
-                      currentExpense.currency
-                    )}
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="font-medium text-gray-700">
-                    2. Individual Transactions
-                  </p>
-                  {currentExpense.transactions.map((t, i) => {
-                    const payer = currentExpense.friends.find(
-                      (f) => f.id === t.paidBy
-                    );
-                    const splitCount =
-                      t.splitBetween.length || currentExpense.friends.length;
-                    const perPerson = t.amount / splitCount;
-
-                    return (
-                      <div key={i} className="pl-4">
-                        <p>
-                          • {payer?.name} paid{" "}
-                          {formatCurrency(t.amount, currentExpense.currency)}{" "}
-                          for {t.description}
-                        </p>
-                        <p className="text-sm">
-                          Split between {splitCount} people (
-                          {formatCurrency(perPerson, currentExpense.currency)}{" "}
-                          each)
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="space-y-2">
-                  <p className="font-medium text-gray-700">
-                    3. Final Settlements
-                  </p>
-                  <p>
-                    After consolidating all transactions, here are the final
-                    amounts:
-                  </p>
-                  {splits.map((split, i) => {
-                    const from = currentExpense.friends.find(
-                      (f) => f.id === split.from
-                    );
-                    const to = currentExpense.friends.find(
-                      (f) => f.id === split.to
-                    );
-                    return (
-                      <p key={i} className="pl-4">
-                        • {from?.name} owes {to?.name}{" "}
-                        {formatCurrency(split.amount, currentExpense.currency)}
-                      </p>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-between">
-                <a
-                  href={`https://wa.me/?text=${generateWhatsAppMessage(
-                    currentExpense,
-                    splits
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-green-600 hover:text-green-700"
-                >
-                  <Share2 size={16} /> Share Explanation
-                </a>
-                <button
-                  onClick={() => {
-                    const explanationText = splits
-                      .map((split, i) => {
-                        const from = currentExpense.friends.find(
-                          (f) => f.id === split.from
-                        )?.name;
-                        const to = currentExpense.friends.find(
-                          (f) => f.id === split.to
-                        )?.name;
-                        return `${from} owes ${to} ${formatCurrency(
-                          split.amount,
-                          currentExpense.currency
-                        )}`;
-                      })
-                      .join("\n");
-
-                    const additionalDetails = `
-Trip Name: ${currentExpense.tripName}
-Total Amount: ${formatCurrency(
-                      currentExpense.totalAmount,
-                      currentExpense.currency
-                    )}
-Date: ${formatDateTime(currentExpense.date)}
-
-Transactions:
-${currentExpense.transactions
-  .map((t, i) => {
-    const payer = currentExpense.friends.find((f) => f.id === t.paidBy)?.name;
-    const splitCount = t.splitBetween.length || currentExpense.friends.length;
-    const perPerson = t.amount / splitCount;
-    return `• ${payer} paid ${formatCurrency(
-      t.amount,
-      currentExpense.currency
-    )} for ${
-      t.description
-    } (Split between ${splitCount} people: ${formatCurrency(
-      perPerson,
-      currentExpense.currency
-    )} each)`;
-  })
-  .join("\n")}
-
-Final Settlements:
-${explanationText}
-    `;
-
-                    navigator.clipboard.writeText(additionalDetails.trim());
-                    toast.success("All details copied to clipboard!");
-                  }}
-                  className="flex items-center gap-2 text-blue-600 hover:text-blue-700"
-                >
-                  <Copy size={16} /> Copy as Text
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
     <div className="background min-h-screen">
       <Header setStep={setStep} />
       <div className="pt-20 max-w-4xl mx-auto  p-6">
         {step === "new" && renderNewExpenseForm()}
         {step === "details" && renderExpenseDetails()}
-        {step === "summary" && renderSummary()}
+        {step === "summary" && currentExpense && (
+          <Summary
+            currentExpense={currentExpense}
+            setStep={setStep}
+            setCurrentExpense={setCurrentExpense}
+            setTripName={setTripName}
+            setFriends={setFriends}
+            setAmount={setAmount}
+            setDescription={setDescription}
+            setPaidBy={setPaidBy}
+            setSplitBetween={setSplitBetween}
+            calculateSplits={calculateSplits}
+            showExplanation={showExplanation}
+            setShowExplanation={setShowExplanation}
+          />
+        )}
       </div>
-      <ToastContainer />
+      <ToastContainer theme="colored" />
     </div>
   );
 }
